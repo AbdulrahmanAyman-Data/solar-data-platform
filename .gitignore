@@ -1,0 +1,99 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Python environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+*.ipynb
+.Trash-*/
+
+# Runtime data, local caches, and generated output
+/data/
+/spark-local/
+**/data/**
+*.log
+*.tmp
+*.temp
+
+# Keep only the Docker beginner guide from the documentation folder
+/docs/*
+!/docs/docker-compose-beginners-guide.md
+
+# Kafka runtime helper script is code; keep topic configuration only
+/kafka/*
+!/kafka/topic_configs/
+/kafka/topic_configs/*
+!/kafka/topic_configs/topics.yaml
+
+# Project implementation: keep only structure placeholders
+/src/*
+!/src/batch/
+/src/batch/*
+!/src/batch/jobs/
+/src/batch/jobs/*
+!/src/batch/jobs/.gitkeep
+!/src/common/
+/src/common/*
+!/src/common/.gitkeep
+!/src/ingestion/
+/src/ingestion/*
+!/src/ingestion/streaming_poller/
+/src/ingestion/streaming_poller/*
+!/src/ingestion/streaming_poller/Dockerfile
+!/src/ingestion/streaming_poller/requirements.txt
+!/src/ingestion/streaming_poller/config/
+/src/ingestion/streaming_poller/config/*
+!/src/ingestion/streaming_poller/config/monitored_locations.json
+!/src/ingestion/streaming_poller/.gitkeep
+!/src/streaming/
+/src/streaming/*
+!/src/streaming/.gitkeep
+
+# GIS scripts, notebooks, and datasets: keep folder structure only
+/gis/*
+!/gis/scripts/
+/gis/scripts/*
+!/gis/scripts/.gitkeep
+!/gis/data/
+/gis/data/*
+!/gis/data/raw/
+/gis/data/raw/*
+!/gis/data/raw/.gitkeep
+!/gis/data/processed/
+/gis/data/processed/*
+!/gis/data/processed/.gitkeep
+
+# Orchestration code: keep folder structure only
+/orchestration/*
+!/orchestration/airflow/
+/orchestration/airflow/*
+!/orchestration/airflow/dags/
+/orchestration/airflow/dags/*
+!/orchestration/airflow/dags/.gitkeep
+
+# Dashboards: keep folder structure only (Grafana dashboard JSON lives in config/)
+/dashboards/*
+!/dashboards/Powerbi/
+/dashboards/Powerbi/*
+!/dashboards/Powerbi/.gitkeep
+!/dashboards/superset/
+/dashboards/superset/*
+!/dashboards/superset/.gitkeep
+
+# Keep Docker build definitions, omit bundled sample data, notebooks, and IDE settings
+/docker/spark/data/
+/docker/spark/notebook/
+/docker/spark/.vscode/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini

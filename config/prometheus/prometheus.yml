@@ -1,0 +1,37 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "kafka"
+    static_configs:
+      - targets: ["solar-kafka-exporter:9308"]
+
+  - job_name: "spark-master"
+    metrics_path: /metrics/master/prometheus
+    static_configs:
+      - targets: ["solar-spark-master:8080"]
+
+  - job_name: "spark-worker"
+    metrics_path: /metrics/worker/prometheus
+    static_configs:
+      - targets: ["solar-spark-worker:8081"]
+
+  - job_name: "trino"
+    static_configs:
+      - targets: ["solar-trino:9401"]
+    # Was: metrics_path /v1/jmx/mbean on port 8080 — Trino's own JSON JMX
+    # API, which needs the X-Trino-User header and returns JSON anyway (not
+    # Prometheus text format). Now points at the jmx_exporter Java agent's
+    # own embedded HTTP server instead (see docker-compose-trino-jmx-fix.yml)
+    # — a separate, unauthenticated, genuinely-Prometheus-format endpoint.
+    # metrics_path is omitted here since jmx_exporter serves on the default
+    # "/metrics" path.
+
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+# NOTE: Airflow StatsD/Prometheus exporter and Great Expectations pushgateway
+# metrics are wired up once the corresponding DAGs/checkpoints exist (Part 22
+# of the technical study). Add their targets here as those pieces are built.

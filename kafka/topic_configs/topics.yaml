@@ -1,0 +1,64 @@
+# Kafka Topic Configuration
+#
+# Currently, solar-kafka has AUTO_CREATE_TOPICS_ENABLE=true, so weather.raw
+# is created automatically on first publish with Kafka's cluster defaults
+# (1 partition, default retention). This file documents the INTENDED
+# configuration explicitly, and create_topics.sh (next to this file) applies
+# it for real using the Kafka CLI, so behaviour doesn't depend on whatever
+# the cluster default happens to be.
+#
+# Naming convention: {domain}.{state} — lower-case, dot-separated, mirrors
+# the Medallion stage the topic feeds (see the technical study, Part 17).
+
+topics:
+  - name: weather.raw
+    status: implemented          # actively used by poller.py -> kafka_to_bronze.py
+    partitions: 9                # bumped from 3 to 9 once monitored_locations.json grew
+                                  # from 3 candidate sites to all 27 Egyptian governorates —
+                                  # see the ALTER command in create_topics.sh. Existing
+                                  # messages keep their old partition assignment; only
+                                  # NEW messages after the alter hash across all 9.
+    replication_factor: 1        # single-broker local dev cluster
+    retention_ms: 604800000      # 7 days — enough to recover from a multi-day consumer outage
+    partition_key: location_id
+    producers:
+      - src/ingestion/streaming_poller/poller.py
+    consumers:
+      - src/streaming/kafka_to_bronze.py
+
+  - name: air-quality.raw
+    status: planned               # not yet produced or consumed by any code
+    partitions: 3
+    replication_factor: 1
+    retention_ms: 604800000
+    partition_key: location_id
+    producers: []                 # will be an OpenAQ poller, once built
+    consumers: []
+
+  - name: historical-weather.raw
+    status: superseded             # NASA POWER was built (src/ingestion/nasa_power_loader.py),
+                                    # but deliberately bypasses this topic — see below.
+    partitions: 3
+    replication_factor: 1
+    retention_ms: 2592000000       # 30 days — batch loads are re-runnable from source, so shorter retention is fine
+    partition_key: location_id
+    producers: []                  # intentionally none — decision reversed, see comment
+    consumers: []
+    # Left in place for documentation history rather than deleted: this topic
+    # was the original plan for how NASA POWER data would reach Bronze, but
+    # once the loader was actually built, Kafka added no value for it —
+    # Kafka's benefit (decoupling a continuously-running producer from a
+    # consumer that might be temporarily down) doesn't apply to a batch job
+    # that fetches a whole historical archive in one API call and is already
+    # retried by Airflow. nasa_power_loader.py instead writes straight to a
+    # dedicated Bronze table (s3a://bronze/historical/weather) via Spark, no
+    # Kafka involved. Full reasoning in nasa_power_loader.py's docstring.
+
+  - name: dead-letter.events
+    status: planned                 # no dead-letter routing implemented yet in poller.py or kafka_to_bronze.py
+    partitions: 1
+    replication_factor: 1
+    retention_ms: 1209600000        # 14 days
+    partition_key: source
+    producers: []
+    consumers: []

@@ -1,0 +1,55 @@
+# GIS processing container for the Solar Data Platform's Geospatial Solar
+# Site Suitability layer. Deliberately separate from the Spark image
+# (local-pyspark) — see the project's architecture notes: GIS tooling
+# (GDAL and friends) pulls in heavy, version-sensitive native system
+# libraries that have no business living inside the Spark/JVM environment.
+#
+# This container does the raster/vector processing and writes GeoParquet
+# to MinIO. It never touches Delta Lake directly — a small Spark step
+# (via solar-spark-submit-client) reads the GeoParquet and writes it as a
+# Delta Gold table, keeping "every Delta write goes through the same
+# tested path" true project-wide.
+
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.8.4
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3-pip \
+        python3-dev \
+        build-essential \
+        wget \
+        curl \
+        unzip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir --upgrade pip
+
+# Pinned versions — same philosophy as Dockerfile.spark: reproducible
+# builds, no surprise upgrades breaking the pipeline months from now.
+RUN pip3 install --no-cache-dir --break-system-packages \
+        numpy==1.26.4 \
+        rasterio==1.3.10 \
+        geopandas==0.14.4 \
+        shapely==2.0.4 \
+        pyproj==3.6.1 \
+        h3==4.2.2 \
+        rasterstats==0.19.0 \
+        boto3==1.34.100 \
+        awscli==1.32.100 \
+        requests==2.31.0 \
+        pandas==2.2.2 \
+        pyarrow==16.1.0 \
+        tqdm==4.66.4 \
+        jupyterlab==4.2.1 \
+        pyogrio==0.7.2
+
+RUN mkdir -p /opt/gis/data/raw \
+             /opt/gis/data/processed \
+             /opt/gis/scripts \
+    && chmod -R 777 /opt/gis
+
+WORKDIR /opt/gis
+
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=", "--NotebookApp.password="]

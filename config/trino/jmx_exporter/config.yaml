@@ -1,0 +1,20 @@
+# jmx_exporter configuration for the Trino coordinator.
+#
+# This is intentionally minimal: jmx_exporter works fine with an empty {}
+# config (exposes every MBean using its default auto-generated metric name),
+# but a few explicit settings here make the output cleaner and more
+# predictable for Grafana panels without trying to hand-pick every metric
+# Trino happens to expose (that list changes across Trino versions).
+#
+# lowercaseOutputName / lowercaseOutputLabelNames: Prometheus convention is
+# lowercase_with_underscores metric names; Trino's JMX bean names are
+# CamelCase, so without this every metric name would look non-standard
+# next to Kafka's already-lowercase kafka_* metrics in the same dashboard.
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+
+# No custom `rules:` section — default catch-all behavior converts every
+# MBean attribute it finds into a metric. This is deliberately broad rather
+# than curated: it's a fresh integration, and it's easier to see everything
+# that's available once in Prometheus/Grafana and narrow down later than to
+# guess which Trino internals matter most before ever having looked.

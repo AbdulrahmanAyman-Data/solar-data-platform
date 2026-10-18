@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: "solar-platform-dashboards"
+    orgId: 1
+    folder: "Solar Data Platform"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

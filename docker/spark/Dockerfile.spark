@@ -1,0 +1,63 @@
+# syntax=docker/dockerfile:1.4
+FROM apache/spark:3.5.1
+
+USER root
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3-pip \
+        python3-dev \
+        build-essential \
+        vim \
+        nano \
+        wget \
+        bash-completion && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    echo ". /usr/share/bash-completion/bash_completion" >> /etc/bash.bashrc
+
+RUN pip3 install --no-cache-dir --upgrade pip \
+    --default-timeout=300 --retries 10
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install \
+        --default-timeout=300 --retries 10 \
+        pandas==2.0.3 \
+        numpy==1.24.4 \
+        ipython==8.12.3 \
+        jupyterlab==4.0.13 \
+        pyspark==3.5.1 \
+        requests==2.31.0 \
+        tenacity==8.2.3
+
+# Kafka support for Spark Structured Streaming
+RUN mkdir -p /opt/spark/jars && \
+    wget -P /opt/spark/jars \
+    https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.12/3.5.1/spark-sql-kafka-0-10_2.12-3.5.1.jar && \
+    wget -P /opt/spark/jars \
+    https://repo1.maven.org/maven2/org/apache/spark/spark-token-provider-kafka-0-10_2.12/3.5.1/spark-token-provider-kafka-0-10_2.12-3.5.1.jar && \
+    wget -P /opt/spark/jars \
+    https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.5.1/kafka-clients-3.5.1.jar && \
+    wget -P /opt/spark/jars \
+    https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.11.1/commons-pool2-2.11.1.jar
+    
+RUN mkdir -p /home/spark/jupyter_runtime \
+             /home/spark/jupyter_data \
+             /home/spark/jupyter_config \
+             /opt/spark-notebooks && \
+    chown -R spark:spark /home/spark /opt/spark-notebooks
+
+ENV PYSPARK_PYTHON=python3 \
+    PYSPARK_DRIVER_PYTHON=python3 \
+    SHELL=/bin/bash \
+    JUPYTER_RUNTIME_DIR=/home/spark/jupyter_runtime \
+    JUPYTER_DATA_DIR=/home/spark/jupyter_data \
+    JUPYTER_CONFIG_DIR=/home/spark/jupyter_config
+
+WORKDIR /opt/spark-notebooks
+
+EXPOSE 8888 4040
+
+USER spark
+
+CMD ["python3", "-m", "jupyterlab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--ServerApp.token="]
