@@ -1,9 +1,5 @@
 # Running the Solar Data Platform with Docker Compose
 
-This guide is for beginners. Follow the steps in order, and verify each stage before moving to the next one.
-
-> **Important:** The intended GitHub repository contains only the project structure, Docker files, and configuration. Application code such as files under `src`, Airflow DAGs, and GIS scripts is intentionally excluded. You can start and verify the infrastructure services using this guide, but application services such as the streaming poller and Spark streaming job cannot perform their project work until the team recreates and adds the application code.
-
 ## 1. What will you run?
 
 Docker Compose starts a group of connected containers:
@@ -28,7 +24,7 @@ Compose creates an internal network named `pipeline-net` and persistent storage 
 2. Docker Desktop on Windows/macOS, or Docker Engine with the Docker Compose plugin on Linux.
 3. Docker Desktop must be running Linux containers.
 4. An internet connection for the first startup, because Docker must download images and some packages.
-5. Enough free disk space. Spark, Airflow, and Superset images are relatively large. At least 8 GB of memory is helpful; more memory and disk space are recommended when running many services together.
+5. Enough free disk space. Spark, Airflow, and Superset images are relatively large. At least 10 GB of memory is helpful; more memory and disk space are recommended when running many services together.
 
 Open PowerShell in the project folder. You should see `docker-compose.yml` and `.env.example`:
 
@@ -48,30 +44,64 @@ Replace `<repository-url>` with the actual repository URL. Do not type the angle
 
 ## 3. Create the `.env` file
 
-`.env.example` is a safe template that can be committed to the repository. The local `.env` file contains values Docker Compose reads and must not be uploaded to GitHub.
-
-Create your local copy:
+1. Make sure PowerShell is open in the same folder as `docker-compose.yml` and `.env.example`.
+2. Copy the template to a new local file named `.env`:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Open `.env` in a text editor and update the passwords and values before starting the services. The template contains these variables:
+3. Open the new file in Notepad:
+
+```powershell
+notepad .env
+```
+
+4. Replace the example values with your own values. Keep the format `NAME=value`: do not remove the variable name, and do not add spaces around `=`. For example:
+
+```dotenv
+MINIO_ROOT_USER=solaradmin
+MINIO_ROOT_PASSWORD=use-a-unique-password-here
+POLL_INTERVAL_SECONDS=300
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=use-another-unique-password-here
+SUPERSET_SECRET_KEY=paste-a-long-random-key-here
+SUPERSET_ADMIN_PASSWORD=use-a-third-unique-password-here
+MAPBOX_API_KEY=
+```
+
+The example passwords above are placeholders. Replace each one with a different, strong password before starting the services. For a local learning setup, use passwords that are easy for you to retrieve but are not used for any personal or production account. Avoid spaces in values. Leave `MAPBOX_API_KEY` blank if you do not use Mapbox.
+
+Here is what each variable controls:
 
 - `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD`: MinIO login.
-- `POLL_INTERVAL_SECONDS`: Open-Meteo polling interval. It does not affect the poller until the application code is added.
+- `POLL_INTERVAL_SECONDS`: How often the Open-Meteo poller requests data, in seconds. `300` means every five minutes. It does not affect the poller until the application code is added.
 - `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD`: Grafana login.
-- `SUPERSET_SECRET_KEY`: A long, random secret key for Superset.
+- `SUPERSET_SECRET_KEY`: A long, cryptographically random private key used by Superset to sign sessions and encrypt sensitive values in its metadata database. Do not type a phrase yourself or keep the example placeholder. Generate a unique key for this Superset installation, save it in `.env`, and keep the same key when restarting the project. If you change it after Superset has stored data, use Superset's documented key-rotation and re-encryption process; changing it casually can make previously encrypted values unreadable.
 - `SUPERSET_ADMIN_PASSWORD`: Superset administrator password.
-- `MAPBOX_API_KEY`: Optional; used for Mapbox maps.
+- `MAPBOX_API_KEY`: Optional; used for Mapbox maps. Leave it empty if you do not have a key.
 
-You can generate a random Superset key in PowerShell with:
+Generate a random Superset key in PowerShell with:
 
 ```powershell
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Copy the output into `SUPERSET_SECRET_KEY`. If Python is not installed on your computer, enter a long random value manually. Do not share or commit `.env`.
+Copy the printed value and paste it after `SUPERSET_SECRET_KEY=` in Notepad, replacing `paste-a-long-random-key-here`. Save the file and close Notepad. If the `python` command is not available, install Python or use another trusted cryptographically secure random-key generator to create a long random key. The official Superset guide also shows `openssl rand -base64 42` as a way to generate one.
+
+5. Confirm that `.env` exists next to `docker-compose.yml`:
+
+```powershell
+Test-Path .env
+```
+
+The result should be `True`. Then check the Compose configuration:
+
+```powershell
+docker compose config --quiet
+```
+
+If this command returns without an error, Compose can read the project configuration. Do not display `.env` in screenshots, send it in chat, or commit it to GitHub. The repository's `.gitignore` excludes `.env`; only `.env.example` should be committed.
 
 ## 4. Validate the configuration
 
@@ -221,6 +251,49 @@ Open:
 - Grafana: <http://localhost:3000>. Sign in using `GRAFANA_ADMIN_USER` and `GRAFANA_ADMIN_PASSWORD` from `.env`.
 
 Prometheus and Grafana settings are provisioned from `config/prometheus` and `config/grafana`. Grafana may take about half a minute to load the provisioned dashboard files.
+
+#### How metrics get from Kafka, Spark, and Trino into Grafana
+
+Prometheus does not collect metrics directly from every application in the same way. This project uses three different collection methods:
+
+| Source | How metrics are exposed | What you need to start |
+|---|---|---|
+| Kafka | `solar-kafka-exporter` is a separate container. It reads Kafka and exposes metrics on port 9308. | Start Kafka first, then `solar-kafka-exporter`. Stage 2 already starts it. |
+| Spark | The Spark Master and Worker expose Prometheus endpoints using `config/spark/metrics.properties`, mounted by Compose. | Start `solar-spark-master` and `solar-spark-worker`. Their metrics endpoints are enabled by the mounted configuration. |
+| Trino | The JMX Prometheus Java agent runs inside the Trino process. Its settings and Java agent are mounted from `config/trino`. There is no separate Trino exporter container. | Start `solar-trino`. The agent exposes metrics on port 9401 inside the Docker network. |
+| Prometheus | Scrapes the Kafka Exporter, Spark Master, Spark Worker, and Trino endpoints every 15 seconds. | Start `solar-prometheus` after the source services are running. Its scrape targets are in `config/prometheus/prometheus.yml`. |
+| Grafana | Reads the metrics from Prometheus and loads the provisioned dashboard. | Start `solar-grafana` after Prometheus is healthy. Its data source and dashboard files are in `config/grafana`. |
+
+The collectors do not all start automatically with their source applications: Kafka Exporter is its own service and must be running. Spark's metrics endpoint and Trino's JMX agent are part of their respective services and start with them. Prometheus and Grafana are separate services and must also be started. If you followed the earlier stages, these components are already started; Compose also starts Kafka Exporter when Prometheus is started because Prometheus declares it as a dependency.
+
+To check the collector and source services:
+
+```powershell
+docker compose ps solar-kafka solar-kafka-exporter solar-spark-master solar-spark-worker solar-trino solar-prometheus solar-grafana
+```
+
+Wait at least 15 seconds after starting Prometheus, then open <http://localhost:9090/targets>. The jobs `kafka`, `spark-master`, `spark-worker`, and `trino` should show `UP`. `UP` means Prometheus can scrape the endpoint; it does not mean that every application-specific metric has a value.
+
+You can check metrics directly in the Prometheus expression box by entering these queries one at a time:
+
+```promql
+up{job="kafka"}
+up{job="spark-master"}
+up{job="spark-worker"}
+up{job="trino"}
+```
+
+When a target is up, these example metric queries should return data if their source is running and exporting the metric:
+
+```promql
+kafka_brokers
+metrics_master_aliveWorkers_Value
+trino_execution_querymanager_runningqueries
+```
+
+Prometheus currently scrapes the Spark Master and Worker daemons. It does not automatically discover every Spark application UI, because each application can use a different address and port.
+
+**About Kafka consumer lag:** Kafka Exporter reports lag for consumer groups with committed Kafka offsets. Spark Structured Streaming tracks offsets in its checkpoint, so its processing delay may not appear as a Kafka consumer-group lag metric. An empty lag panel can therefore mean that no matching committed-offset consumer group exists; it does not by itself prove that Kafka or Prometheus is broken. Check that the Kafka target is `UP` and that `kafka_consumergroup_lag` returns series before diagnosing the panel.
 
 ### Stage 8: Superset
 
