@@ -68,7 +68,7 @@ services:
   #  DATA LAKE STORAGE — MinIO (replaces HDFS)
   # ──────────────────────────────────────────────
   solar-minio:
-    image: minio/minio:latest
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: solar-minio
     hostname: solar-minio
     command: server /data --console-address ":9001"
@@ -91,7 +91,7 @@ services:
 
   # One-shot job: creates the bronze/silver/gold/checkpoints buckets on first boot
   solar-minio-init:
-    image: minio/mc:latest
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: solar-minio-init
     depends_on:
       solar-minio:
@@ -375,7 +375,7 @@ services:
     environment:
       SERVICE_NAME: metastore
       DB_DRIVER: postgres
-      IS_RESUME: "true"
+      IS_RESUME: "false"
       MINIO_ENDPOINT: http://solar-minio:9000
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
