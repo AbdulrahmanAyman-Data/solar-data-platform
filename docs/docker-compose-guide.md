@@ -128,6 +128,30 @@ docker compose config --quiet
 
 The first startup may take a while because Docker downloads images and builds the Spark and GIS images. Later starts are usually faster because Docker reuses downloaded image layers.
 
+#### Does Compose download or build the images for me?
+
+Yes. The staged `docker compose up` commands below do the image setup as needed; you do not have to run a separate download command before every service:
+
+- A service that only has an `image` (for example, Kafka or MinIO) uses that published image. Docker downloads it automatically if it is not available locally.
+- A service that has a `build` section has a local Dockerfile and build context. Compose builds its image when needed. The first build can take longer because the Dockerfile may download a base image and install packages.
+- Some services share the same local image. The Spark Master, Worker, Jupyter, streaming job, and submit client all use `local-pyspark`, built from `docker/spark/Dockerfile.spark`. The GIS Processor uses `local-gis`, built from `docker/gis/Dockerfile.gis`. The poller has its own build context and Dockerfile under `src/ingestion/streaming_poller`.
+
+If you prefer to build the project's local images before starting containers, run this once:
+
+```powershell
+docker compose build solar-spark-master solar-gis-processor solar-streaming-poller
+```
+
+This builds the shared `local-pyspark` image through the Spark Master service, the GIS image, and the poller image. Images used by services that do not have a local build are still downloaded automatically when their stage is started with `docker compose up`.
+
+If you later edit a Dockerfile or files used during an image build, rebuild and recreate the affected service. For example:
+
+```powershell
+docker compose up -d --build solar-jupyter
+```
+
+You usually do not need `--build` when restarting unchanged services. Compose can reuse the existing local images and downloaded layers.
+
 ## 6. Start the services step by step
 
 Run these commands from the project root and follow the order below. After each group, check `docker compose ps` and the service logs.
@@ -169,7 +193,7 @@ docker compose logs --tail 100 solar-spark-master
 docker compose up -d solar-spark-worker solar-jupyter solar-spark-submit-client
 ```
 
-Compose builds the `local-pyspark` image from `docker/spark/Dockerfile.spark` if it does not already exist. Open:
+The first `up` of these services builds the shared `local-pyspark` image from `docker/spark/Dockerfile.spark` if it is not available locally. The other Spark services reuse that image. Open:
 
 - Spark Master UI: <http://localhost:8081>. After the Worker starts, check that one worker is active.
 - Spark Worker UI: <http://localhost:8082>.
