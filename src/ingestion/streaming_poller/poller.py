@@ -30,7 +30,7 @@ CURRENT_VARS = ",".join(
         "shortwave_radiation",        # -> ghi_w_m2
         "direct_normal_irradiance",   # -> dni_w_m2
         "diffuse_radiation",          # -> dhi_w_m2
-        "wind_speed_10m",             # -> wind_speed_ms (بعد wind_speed_unit=ms)
+        "wind_speed_10m",             # -> wind_speed_ms
         "temperature_2m",             # -> temperature_c
         "relative_humidity_2m",       # -> humidity_pct
         "cloud_cover",                # -> cloud_cover_pct
@@ -76,7 +76,6 @@ def load_locations():
 
 
 def _is_retryable(exc: BaseException) -> bool:
-    """نعيد المحاولة على أخطاء الشبكة و 429 و 5xx فقط، مش 4xx (إحداثيات غلط مثلًا)."""
     if isinstance(exc, (requests.ConnectionError, requests.Timeout)):
         return True
     if isinstance(exc, requests.HTTPError) and exc.response is not None:
@@ -128,7 +127,6 @@ def fetch_weather(location):
         "humidity_pct": current.get("relative_humidity_2m"),
         "cloud_cover_pct": current.get("cloud_cover"),
         "ingestion_timestamp": datetime.now(timezone.utc).isoformat(),
-        # kafka_timestamp مش بيتبعت من هنا: Spark بيقراه من عمود timestamp بتاع Kafka
     }
 
 
@@ -143,8 +141,6 @@ def on_delivery(err, message):
             message.offset(),
             message.key().decode("utf-8") if message.key() else None,
         )
-
-
 def main():
     locations = load_locations()
 

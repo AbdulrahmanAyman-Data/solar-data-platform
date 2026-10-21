@@ -13,6 +13,8 @@ per location (from the last loaded day up to today - NASA_END_LAG_DAYS).
 Use --full-refresh to reload the whole window. Re-running is safe: rows merge on event_id.
 """
 import argparse
+Re-running is safe: rows are merged on event_id.
+"""
 import json
 import logging
 import os
@@ -35,6 +37,14 @@ END_LAG_DAYS = int(os.getenv("NASA_END_LAG_DAYS", "7"))  # NASA API data is dela
 SOURCE = "nasa-power"
 
 #http://localhost:9000 | http://solar-minio:9000
+#  Configuration
+NASA_URL = os.getenv("NASA_POWER_URL", "https://power.larc.nasa.gov/api/temporal/hourly/point")
+LOCATIONS_FILE = os.getenv("MONITORED_LOCATIONS_FILE", "config/monitored_locations.json")
+YEARS_BACK = int(os.getenv("HISTORICAL_YEARS", "5"))
+END_LAG_DAYS = int(os.getenv("NASA_END_LAG_DAYS", "7"))  
+SOURCE = "nasa-power"
+
+# http://localhost:9000 |  http://solar-minio:9000
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "http://localhost:9000")
 TABLE_URI = os.getenv("BRONZE_HISTORICAL_URI", "s3://bronze/historical/weather")
 STORAGE_OPTS = {
@@ -47,6 +57,7 @@ STORAGE_OPTS = {
 }
 
 #Bronze
+# Bronze 
 PARAM_MAP = {
     "ALLSKY_SFC_SW_DWN": "ghi_w_m2",
     "ALLSKY_SFC_SW_DNI": "dni_w_m2",
@@ -59,11 +70,13 @@ PARAM_MAP = {
 FILL_VALUE = -999
 
 #schema
+
 SCHEMA = pa.schema(
     [
         ("event_id", pa.string()),
         ("source", pa.string()),
         ("location_id", pa.string()),
+        ("location_id", pa.int32()),
         ("site_name", pa.string()),
         ("latitude", pa.float64()),
         ("longitude", pa.float64()),
@@ -144,6 +157,7 @@ def build_table(location: dict, parameters: dict) -> pa.Table:
     df = df.rename_axis("observation_timestamp").reset_index()
 
     location_id = str(location["location_id"])
+    location_id = int(location["location_id"])
     df["observation_timestamp"] = df["observation_timestamp"].astype("datetime64[us, UTC]")
     df["event_id"] = [
         str(uuid.uuid5(uuid.NAMESPACE_URL, f"{SOURCE}:{location_id}:{ts.strftime('%Y%m%d%H')}"))
@@ -207,6 +221,14 @@ def main(full_refresh: bool = False) -> None:
             continue
 
         logger.info("%s | fetching %s -> %s", location["site_name"], start, end)
+#Main
+def main() -> None:
+    locations = load_locations()
+    end = date.today() - timedelta(days=END_LAG_DAYS)
+    start = end.replace(year=end.year - YEARS_BACK) + timedelta(days=1)
+    logger.info("Fetching %s -> %s for %d locations -> %s", start, end, len(locations), TABLE_URI)
+
+    for location in locations:
         for chunk_start, chunk_end in date_chunks(start, end):
             parameters = fetch_parameters(location, chunk_start, chunk_end)
             table = build_table(location, parameters)
@@ -216,6 +238,7 @@ def main(full_refresh: bool = False) -> None:
                 location["site_name"], chunk_start, chunk_end, table.num_rows,
             )
             time.sleep(2)  # to avoid hitting NASA too fast (429)
+            time.sleep(2)  
 
     logger.info("Done.")
 
@@ -224,3 +247,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--full-refresh", action="store_true", help="reload the whole N-year window")
     main(full_refresh=parser.parse_args().full_refresh)
+    main()
