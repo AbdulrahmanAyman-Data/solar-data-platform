@@ -26,7 +26,9 @@ import pyarrow as pa
 import requests
 from deltalake import DeltaTable, write_deltalake
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+from dotenv import load_dotenv
 
+load_dotenv()  # بيقرا ملف .env ويحط المتغيرات في الـ Environment أوتوماتيك
 #Configuration
 NASA_URL = os.getenv("NASA_POWER_URL", "https://power.larc.nasa.gov/api/temporal/hourly/point")
 LOCATIONS_FILE = os.getenv("MONITORED_LOCATIONS_FILE", "config/monitored_locations.json")
