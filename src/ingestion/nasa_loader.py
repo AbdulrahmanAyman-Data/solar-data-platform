@@ -8,8 +8,11 @@ Locations come from the same config/monitored_locations.json used by the streami
 Run from the project root:
     pip install requests pandas pyarrow deltalake tenacity
     python historical_poller/nasa_power_historical.py
-Re-running is safe: rows are merged on event_id.
+Incremental: first run loads the last N years; later runs load only what is new
+per location (from the last loaded day up to today - NASA_END_LAG_DAYS).
+Use --full-refresh to reload the whole window. Re-running is safe: rows merge on event_id.
 """
+import argparse
 import json
 import logging
 import os
@@ -24,14 +27,14 @@ import requests
 from deltalake import DeltaTable, write_deltalake
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
-#  Configuration
+#Configuration
 NASA_URL = os.getenv("NASA_POWER_URL", "https://power.larc.nasa.gov/api/temporal/hourly/point")
 LOCATIONS_FILE = os.getenv("MONITORED_LOCATIONS_FILE", "config/monitored_locations.json")
 YEARS_BACK = int(os.getenv("HISTORICAL_YEARS", "5"))
-END_LAG_DAYS = int(os.getenv("NASA_END_LAG_DAYS", "7"))  
+END_LAG_DAYS = int(os.getenv("NASA_END_LAG_DAYS", "7"))  # NASA API data is delayed by ~7 days, so we don't try to load the last week
 SOURCE = "nasa-power"
 
-# http://localhost:9000 |  http://solar-minio:9000
+#http://localhost:9000 | http://solar-minio:9000
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "http://localhost:9000")
 TABLE_URI = os.getenv("BRONZE_HISTORICAL_URI", "s3://bronze/historical/weather")
 STORAGE_OPTS = {
@@ -43,7 +46,7 @@ STORAGE_OPTS = {
     "AWS_S3_ALLOW_UNSAFE_RENAME": "true",
 }
 
-# Bronze 
+#Bronze
 PARAM_MAP = {
     "ALLSKY_SFC_SW_DWN": "ghi_w_m2",
     "ALLSKY_SFC_SW_DNI": "dni_w_m2",
@@ -55,12 +58,12 @@ PARAM_MAP = {
 }
 FILL_VALUE = -999
 
-
+#schema
 SCHEMA = pa.schema(
     [
         ("event_id", pa.string()),
         ("source", pa.string()),
-        ("location_id", pa.int32()),
+        ("location_id", pa.string()),
         ("site_name", pa.string()),
         ("latitude", pa.float64()),
         ("longitude", pa.float64()),
@@ -140,7 +143,7 @@ def build_table(location: dict, parameters: dict) -> pa.Table:
     df.index = pd.to_datetime(df.index, format="%Y%m%d%H", utc=True)
     df = df.rename_axis("observation_timestamp").reset_index()
 
-    location_id = int(location["location_id"])
+    location_id = str(location["location_id"])
     df["observation_timestamp"] = df["observation_timestamp"].astype("datetime64[us, UTC]")
     df["event_id"] = [
         str(uuid.uuid5(uuid.NAMESPACE_URL, f"{SOURCE}:{location_id}:{ts.strftime('%Y%m%d%H')}"))
@@ -174,14 +177,36 @@ def save(table: pa.Table) -> None:
         write_deltalake(TABLE_URI, table, storage_options=STORAGE_OPTS)
 
 
+def get_last_loaded() -> dict[str, date]:
+    """آخر يوم اتحمّل لكل موقع من جدول Delta (فاضي لو الجدول لسه مش موجود)."""
+    if not DeltaTable.is_deltatable(TABLE_URI, storage_options=STORAGE_OPTS):
+        return {}
+    dt = DeltaTable(TABLE_URI, storage_options=STORAGE_OPTS)
+    df = dt.to_pyarrow_table(columns=["location_id", "observation_timestamp"]).to_pandas()
+    if df.empty:
+        return {}
+    last = df.groupby("location_id")["observation_timestamp"].max()
+    return {str(loc_id): ts.date() for loc_id, ts in last.items()}
+
+
 #Main
-def main() -> None:
+def main(full_refresh: bool = False) -> None:
     locations = load_locations()
     end = date.today() - timedelta(days=END_LAG_DAYS)
-    start = end.replace(year=end.year - YEARS_BACK) + timedelta(days=1)
-    logger.info("Fetching %s -> %s for %d locations -> %s", start, end, len(locations), TABLE_URI)
+    window_start = end - timedelta(days=365 * YEARS_BACK) + timedelta(days=1)
+    last_loaded = {} if full_refresh else get_last_loaded()
 
     for location in locations:
+        location_id = str(location["location_id"])
+
+        
+        start = max(last_loaded[location_id], window_start) if location_id in last_loaded else window_start
+
+        if start > end:
+            logger.info("%s | up to date (last loaded %s)", location["site_name"], last_loaded.get(location_id))
+            continue
+
+        logger.info("%s | fetching %s -> %s", location["site_name"], start, end)
         for chunk_start, chunk_end in date_chunks(start, end):
             parameters = fetch_parameters(location, chunk_start, chunk_end)
             table = build_table(location, parameters)
@@ -190,10 +215,12 @@ def main() -> None:
                 "%s | %s -> %s | %d rows saved",
                 location["site_name"], chunk_start, chunk_end, table.num_rows,
             )
-            time.sleep(2)  
+            time.sleep(2)  # to avoid hitting NASA too fast (429)
 
     logger.info("Done.")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--full-refresh", action="store_true", help="reload the whole N-year window")
+    main(full_refresh=parser.parse_args().full_refresh)

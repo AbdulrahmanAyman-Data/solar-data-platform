@@ -44,7 +44,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 running = True
-last_observation: dict[int, str] = {}  
+last_observation: dict[str, str] = {}  
 
 
 def stop_handler(signum, frame):
@@ -107,7 +107,7 @@ def fetch_weather(location):
     if not current:
         raise ValueError(f"No current weather data returned for {location['location_id']}")
 
-    location_id = int(location["location_id"])
+    location_id = str(location["location_id"])
    
     observation_ts = f"{current['time']}:00Z"
 
