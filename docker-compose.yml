@@ -68,7 +68,7 @@ services:
   #  DATA LAKE STORAGE — MinIO (replaces HDFS)
   # ──────────────────────────────────────────────
   solar-minio:
-    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    image: pgsty/silo:latest
     container_name: solar-minio
     hostname: solar-minio
     command: server /data --console-address ":9001"
@@ -91,7 +91,7 @@ services:
 
   # One-shot job: creates the bronze/silver/gold/checkpoints buckets on first boot
   solar-minio-init:
-    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    image: pgsty/mc:latest
     container_name: solar-minio-init
     depends_on:
       solar-minio:
@@ -329,6 +329,7 @@ services:
       dockerfile: Dockerfile
     container_name: solar-streaming-poller
     hostname: solar-streaming-poller
+    command: python poller.py
     environment:
       KAFKA_BOOTSTRAP_SERVERS: solar-kafka:9092
       OPEN_METEO_BASE_URL: https://api.open-meteo.com/v1/forecast
@@ -336,7 +337,8 @@ services:
       MONITORED_LOCATIONS_FILE: /app/config/monitored_locations.json
       LOG_LEVEL: INFO
     volumes:
-      - ./src/ingestion/streaming_poller/config:/app/config
+      - ./src/ingestion/streaming_poller:/app
+      # - ./src/ingestion/streaming_poller/config:/app/config
     depends_on:
       solar-kafka:
         condition: service_healthy
@@ -362,7 +364,7 @@ services:
     networks:
       - pipeline-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hive"]
+      test: ["CMD-SHELL", "pg_isready -U hive -d metastore"]
       interval: 10s
       retries: 5
 
