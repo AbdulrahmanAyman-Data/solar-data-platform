@@ -12,9 +12,8 @@ Incremental: first run loads the last N years; later runs load only what is new
 per location (from the last loaded day up to today - NASA_END_LAG_DAYS).
 Use --full-refresh to reload the whole window. Re-running is safe: rows merge on event_id.
 """
+from __future__ import annotations
 import argparse
-Re-running is safe: rows are merged on event_id.
-"""
 import json
 import logging
 import os
@@ -78,7 +77,6 @@ SCHEMA = pa.schema(
         ("event_id", pa.string()),
         ("source", pa.string()),
         ("location_id", pa.string()),
-        ("location_id", pa.int32()),
         ("site_name", pa.string()),
         ("latitude", pa.float64()),
         ("longitude", pa.float64()),
@@ -159,7 +157,6 @@ def build_table(location: dict, parameters: dict) -> pa.Table:
     df = df.rename_axis("observation_timestamp").reset_index()
 
     location_id = str(location["location_id"])
-    location_id = int(location["location_id"])
     df["observation_timestamp"] = df["observation_timestamp"].astype("datetime64[us, UTC]")
     df["event_id"] = [
         str(uuid.uuid5(uuid.NAMESPACE_URL, f"{SOURCE}:{location_id}:{ts.strftime('%Y%m%d%H')}"))
@@ -211,11 +208,10 @@ def main(full_refresh: bool = False) -> None:
     end = date.today() - timedelta(days=END_LAG_DAYS)
     window_start = end - timedelta(days=365 * YEARS_BACK) + timedelta(days=1)
     last_loaded = {} if full_refresh else get_last_loaded()
+    logger.info("Window end %s | %d locations -> %s", end, len(locations), TABLE_URI)
 
     for location in locations:
         location_id = str(location["location_id"])
-
-        
         start = max(last_loaded[location_id], window_start) if location_id in last_loaded else window_start
 
         if start > end:
@@ -223,14 +219,6 @@ def main(full_refresh: bool = False) -> None:
             continue
 
         logger.info("%s | fetching %s -> %s", location["site_name"], start, end)
-#Main
-def main() -> None:
-    locations = load_locations()
-    end = date.today() - timedelta(days=END_LAG_DAYS)
-    start = end.replace(year=end.year - YEARS_BACK) + timedelta(days=1)
-    logger.info("Fetching %s -> %s for %d locations -> %s", start, end, len(locations), TABLE_URI)
-
-    for location in locations:
         for chunk_start, chunk_end in date_chunks(start, end):
             parameters = fetch_parameters(location, chunk_start, chunk_end)
             table = build_table(location, parameters)
@@ -240,7 +228,6 @@ def main() -> None:
                 location["site_name"], chunk_start, chunk_end, table.num_rows,
             )
             time.sleep(2)  # to avoid hitting NASA too fast (429)
-            time.sleep(2)  
 
     logger.info("Done.")
 
@@ -249,4 +236,3 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--full-refresh", action="store_true", help="reload the whole N-year window")
     main(full_refresh=parser.parse_args().full_refresh)
-    main()
