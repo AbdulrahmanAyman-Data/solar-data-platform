@@ -157,7 +157,8 @@ services:
       MINIO_ENDPOINT: http://solar-minio:9000
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      SPARK_LOCAL_DIRS: /opt/spark-local                   
+      SPARK_LOCAL_DIRS: /opt/spark-local  
+      SPARK_WORKER_DIR: /opt/spark/work                 
       SPARK_WORKER_OPTS: "-Dspark.worker.cleanup.enabled=true -Dspark.worker.cleanup.interval=1800 -Dspark.worker.cleanup.appDataTtl=86400 -Dspark.ui.prometheus.enabled=true"         
     depends_on:
       solar-spark-master:
@@ -535,6 +536,8 @@ services:
   solar-airflow-worker:
     <<: *airflow-common
     container_name: solar-airflow-worker
+    group_add:
+      - "984"
     command: airflow celery worker
     volumes:
       - ./orchestration/airflow/dags:/opt/airflow/dags
