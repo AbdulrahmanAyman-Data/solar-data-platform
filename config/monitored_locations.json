@@ -1,0 +1,164 @@
+[
+  {
+    "location_id": "cairo",
+    "site_name": "Cairo",
+    "latitude": 30.0444,
+    "longitude": 31.2357
+  },
+  {
+    "location_id": "alexandria",
+    "site_name": "Alexandria",
+    "latitude": 31.2001,
+    "longitude": 29.9187
+  },
+  {
+    "location_id": "port-said",
+    "site_name": "Port Said",
+    "latitude": 31.2653,
+    "longitude": 32.3019
+  },
+  {
+    "location_id": "suez",
+    "site_name": "Suez",
+    "latitude": 29.9668,
+    "longitude": 32.5498
+  },
+  {
+    "location_id": "damietta",
+    "site_name": "Damietta",
+    "latitude": 31.4165,
+    "longitude": 31.8133
+  },
+  {
+    "location_id": "dakahlia",
+    "site_name": "Dakahlia (Mansoura)",
+    "latitude": 31.0409,
+    "longitude": 31.3785
+  },
+  {
+    "location_id": "sharqia",
+    "site_name": "Sharqia (Zagazig)",
+    "latitude": 30.7327,
+    "longitude": 31.7195
+  },
+  {
+    "location_id": "qalyubia",
+    "site_name": "Qalyubia (Banha)",
+    "latitude": 30.4281,
+    "longitude": 31.2107
+  },
+  {
+    "location_id": "kafr-el-sheikh",
+    "site_name": "Kafr El Sheikh",
+    "latitude": 31.1107,
+    "longitude": 30.9388
+  },
+  {
+    "location_id": "gharbia",
+    "site_name": "Gharbia (Tanta)",
+    "latitude": 30.7865,
+    "longitude": 31.0004
+  },
+  {
+    "location_id": "monufia",
+    "site_name": "Monufia (Shibin El Kom)",
+    "latitude": 30.5972,
+    "longitude": 30.9876
+  },
+  {
+    "location_id": "beheira",
+    "site_name": "Beheira (Damanhur)",
+    "latitude": 31.0409,
+    "longitude": 30.4695
+  },
+  {
+    "location_id": "ismailia",
+    "site_name": "Ismailia",
+    "latitude": 30.5965,
+    "longitude": 32.2715
+  },
+  {
+    "location_id": "giza",
+    "site_name": "Giza",
+    "latitude": 29.9870,
+    "longitude": 31.2118
+  },
+  {
+    "location_id": "beni-suef",
+    "site_name": "Beni Suef",
+    "latitude": 29.0661,
+    "longitude": 31.0994
+  },
+  {
+    "location_id": "faiyum",
+    "site_name": "Faiyum",
+    "latitude": 29.3084,
+    "longitude": 30.8441
+  },
+  {
+    "location_id": "minya",
+    "site_name": "Minya",
+    "latitude": 28.1099,
+    "longitude": 30.7503
+  },
+  {
+    "location_id": "asyut",
+    "site_name": "Asyut",
+    "latitude": 27.1809,
+    "longitude": 31.1837
+  },
+  {
+    "location_id": "sohag",
+    "site_name": "Sohag",
+    "latitude": 26.5569,
+    "longitude": 31.6948
+  },
+  {
+    "location_id": "qena",
+    "site_name": "Qena",
+    "latitude": 26.1551,
+    "longitude": 32.7160
+  },
+  {
+    "location_id": "luxor",
+    "site_name": "Luxor",
+    "latitude": 25.6872,
+    "longitude": 32.6396
+  },
+  {
+    "location_id": "aswan",
+    "site_name": "Aswan",
+    "latitude": 24.0889,
+    "longitude": 32.8998
+  },
+  {
+    "location_id": "red-sea",
+    "site_name": "Red Sea (Hurghada)",
+    "latitude": 27.2579,
+    "longitude": 33.8116
+  },
+  {
+    "location_id": "new-valley",
+    "site_name": "New Valley (Kharga)",
+    "latitude": 25.4477,
+    "longitude": 30.5480
+  },
+  {
+    "location_id": "matrouh",
+    "site_name": "Matrouh",
+    "latitude": 31.3543,
+    "longitude": 27.2373
+  },
+  {
+    "location_id": "north-sinai",
+    "site_name": "North Sinai (Arish)",
+    "latitude": 31.1290,
+    "longitude": 33.7994
+  },
+  {
+    "location_id": "south-sinai",
+    "site_name": "South Sinai (El Tor)",
+    "latitude": 28.2298,
+    "longitude": 33.6144
+  }
+]
