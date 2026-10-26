@@ -1,2 +1,31 @@
 
 .env
+
+# Python environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+*.ipynb
+.Trash-*/
+
+# Runtime data, local caches, and generated output
+/data/
+/spark-local/
+**/data/**
+*.log
+*.tmp
+*.temp
+
+# GIS 
+gis/data/raw/
+
+# GIS processed datasets - upload to GitHub
+!gis/data/processed/
+!gis/data/processed/**
+
+# Documentation:
+/docs/GHI, DNI, DHI.jpg
+/docs/*.mp4
