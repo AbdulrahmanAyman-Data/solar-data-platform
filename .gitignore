@@ -29,3 +29,10 @@ gis/data/raw/
 # Documentation:
 /docs/GHI, DNI, DHI.jpg
 /docs/*.mp4
+
+# Dashboards: keep folder structure only (Grafana dashboard JSON lives in config/)
+/dashboards/*
+!/dashboards/Powerbi/
+/dashboards/Powerbi/*
+!/dashboards/Powerbi/.gitkeep
+
