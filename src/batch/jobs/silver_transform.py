@@ -10,6 +10,7 @@ MINIO_PASSWORD = os.getenv("MINIO_ROOT_PASSWORD", "minioadmin123")
 BRONZE_STREAMING_PATH = "s3a://bronze/realtime/weather"
 BRONZE_HISTORICAL_PATH = "s3a://bronze/historical/weather"
 SILVER_PATH = "s3a://silver/weather"
+QUARANTINE_PATH="s3a://silver/quarantine/weather"
 
 FINAL_COLUMNS = [
     "event_id", "source", "ingestion_timestamp", "observation_timestamp",
@@ -74,16 +75,28 @@ def main():
         c = F.col(column)
         return c.isNull() | ((c >= low) & (c <= high))
 
-    validated = combined.filter(
-        in_range("latitude", -90, 90)
-        & in_range("longitude", -180, 180)
-        & in_range("temperature_c", -90, 60)
-        & in_range("humidity_pct", 0, 100)
-        & in_range("cloud_cover_pct", 0, 100)
-        & in_range("ghi_w_m2", 0, 1500)
-        & in_range("dni_w_m2", 0, 1500)
-    )
+#Quarantine Pattern: Separate valid vs invalid records from combined data
+    is_valid_condition = (
+    in_range("latitude", -90, 90)
+    & in_range("longitude", -180, 180)
+    & in_range("temperature_c", -90, 60)
+    & in_range("humidity_pct", 0, 100)
+    & in_range("cloud_cover_pct", 0, 100)
+    & in_range("ghi_w_m2", 0, 1500)
+    & in_range("dni_w_m2", 0, 1500)
+)
 
+
+    validated = combined.filter(is_valid_condition)
+    
+    # Invert the validated condition to isolate bad records
+    # (or check if any of the critical ranges failed)
+    quarantine_df = combined.filter(~is_valid_condition)
+    
+
+    # Write invalid data to the Quarantine table
+    quarantine_df.write.format("delta").mode("append").save(QUARANTINE_PATH)
+    print(f"[silver] Invalid records quarantined: {quarantine_df.count()}")
     # 4. Full-table dedup: keep the latest-ingested row per (source, location, observation time)
     w = Window.partitionBy("source", "location_id", "observation_timestamp").orderBy(
         F.col("ingestion_timestamp").desc()
